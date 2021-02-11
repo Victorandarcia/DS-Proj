@@ -9,7 +9,7 @@ The parameters to evaluate on each reactor are:
 - Volume of each type of reactor
 - Energy required to run these reactors
 
-A word document was added to the repo with the whole background and procedures in Spanish. 
+A .pdf document was added to the repo with the whole background and procedures in Spanish. 
 
 The CSTRm.m and PFRm.m files contains the modelling for each reactor type.
 The method used to solve all the diff. equations was ode23.
