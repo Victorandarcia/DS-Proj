@@ -14,7 +14,8 @@ A .pdf document was added to the repo with the whole background and procedures i
 The CSTRm.m and PFRm.m files contains the modelling for each reactor type.
 The method used to solve all the diff. equations was ode23.
 
-Project conclusion
+Project conclusion:
+
 PFR reactor yields Xylose in higher concentrations than CSTR and because of the way PFR works, by-products are minimal.
 The selected PFR has a diameter of 4" and a volume of 1 m^3.
 
