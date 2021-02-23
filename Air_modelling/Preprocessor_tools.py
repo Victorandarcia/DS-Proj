@@ -1,4 +1,3 @@
-
 class Preprocessor:
     """
     Class that calls the raw data file and convert it to a pandas DF.
@@ -31,6 +30,7 @@ class Preprocessor:
         """
         Preprocessor.read_file(self)
         Preprocessor.list_stations(self)
+
 
 class CorrectionTools(Preprocessor):
     """
@@ -131,7 +131,7 @@ class CorrectionTools(Preprocessor):
         year_value = self.datadict[self.datastations[0]][self.date_column_name][0]
 
         start_date = datetime(year_value.year, 1, 1, 0, 0, 0, 0)
-        end_date = datetime(year_value.year+1, 1, 1, 0, 0, 0, 0)
+        end_date = datetime(year_value.year + 1, 1, 1, 0, 0, 0, 0)
 
         total_days = pd.date_range(start_date, end_date, freq="H")
 
@@ -160,16 +160,17 @@ class CorrectionTools(Preprocessor):
         df.set_index(pd.to_datetime(df[self.datetime_column_name]), inplace=True)
         fulldates_df.set_index(pd.to_datetime(fulldates_df[self.datetime_column_name]), inplace=True)
 
-        joined_dfs = df.join(fulldates_df,
-                             how="outer",
-                             lsuffix='',
-                             rsuffix='_other')
+        joined_dfs = fulldates_df.join(df, how="inner", rsuffix='', lsuffix='_other')
 
-        joined_dfs_copy = joined_dfs.copy()
-        joined_dfs_copy.drop_duplicates(keep='first', inplace=True)
+        #Temporary fix to avoid duplicates, drop_duplicates method not working
+        joined_dfs = joined_dfs.drop(joined_dfs.loc[joined_dfs.index.duplicated()].index)
+
+        #outer join to obtain the dates for the whole year
+        joined_dfs = fulldates_df.join(joined_dfs, how="outer", rsuffix='', lsuffix='_other1')
+
         # we just select the parameters we want to keep from the joined_dfs
 
-        self.datadict[self.datastations[station]] = joined_dfs_copy[self.parameters]
+        self.datadict[self.datastations[station]] = joined_dfs[self.parameters]
 
     def adjust_data(self, modify_df=True):
         """
@@ -193,24 +194,72 @@ class CorrectionTools(Preprocessor):
                     year_count += 1
                 CorrectionTools.merge_data(self, station)
 
+    def adjust_station_data(self, station, modify_df=True):
+        """
+        Method to call if the user just want to obtain the modified df for a single or a list of stations.
 
-class GroupData:
-    pass
+        like the adjust_data method, this method calls an .activate() function from Preprocessor parent class and
+        imports the Xlsx data to a pandas DataFrame.
+        Then, for every 'station' contained in the DF, some correction tools will be applied.
+
+        The problem here is that each station is accessed by a number on the self.datastations list.
+        #TODO find a way to make this method valid for only a specific station
+
+        The resulting DF can be accessed by calling the '.datadict' attribute on the object.
+        :param station:
+        :return:
+        """
+        pass
+
+
+class GroupByParameters(CorrectionTools):
+    """
+    Group data by parameters such as CO, NO2, etc.
+
+    """
+
+    def __init__(self, filepath):
+        super().__init__(filepath)
+        self.all_parameters_df = dict()
+        self.parameter_df = pd.DataFrame()
+
+    def arrange_parameters(self, parameter):
+        for station in self.datastations:
+            self.parameter_df[station] = self.datadict[station][parameter]
+        return self.parameter_df
+
+    def get_all_parameters_df(self):
+        for parameter in self.parameters:
+            self.all_parameters_df[parameter] = GroupByParameters.arrange_parameters(self, parameter)
+
+
+class GroupByYears(CorrectionTools):
+    """
+    This class will concat various years of data into a single df which then can be classified into parameters.
+    filepath input will be a list containing the path of the xlsx file.
+    """
+    def __init__(self, filepath):
+        super().__init__(filepath)
+
+
+
+
 
 
 if __name__ == '__main__':
     '''Debugging code ahead'''
     import pandas as pd
-    from datetime import datetime, date, time, timedelta
+    from datetime import datetime
     import numpy as np
     import os
 
     # get path to file
     folder_path = r'C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling'
-    data_path = r'\data\datos_2017.xlsx'
+    data_path = r'\data\datos_2016.xlsx'
     process_file = folder_path + data_path
 
     # d_2016 = Preprocessor(process_file)
     # d_2016.activate()
-    prueba = CorrectionTools(process_file)
+    prueba = GroupByParameters(process_file)
     prueba.adjust_data()
+    prueba.get_all_parameters_df()
