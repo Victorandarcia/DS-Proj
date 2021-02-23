@@ -221,12 +221,12 @@ class GroupByParameters(CorrectionTools):
     def __init__(self, filepath):
         super().__init__(filepath)
         self.all_parameters_df = dict()
-        self.parameter_df = pd.DataFrame()
 
     def arrange_parameters(self, parameter):
+        parameter_df = pd.DataFrame()
         for station in self.datastations:
-            self.parameter_df[station] = self.datadict[station][parameter]
-        return self.parameter_df
+            parameter_df[station] = self.datadict[station][parameter]
+        return parameter_df
 
     def get_all_parameters_df(self):
         for parameter in self.parameters:
@@ -242,6 +242,12 @@ class GroupByYears(CorrectionTools):
         super().__init__(filepath)
 
 
+#TODO: add comments on the GroupByParameters class and methods
+#TODO: Finish the GroupByYears class
+#TODO: Remove all values whose difference with the previous data is higher than 3stdev
+#TODO: Create folder with all the values obtained so far without dropping rows with missing values
+#TODO: Create folder with all the values obtained when dropping rows with missing values
+#TODO: Perform EDA on the treated data
 
 
 
