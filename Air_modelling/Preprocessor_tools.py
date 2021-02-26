@@ -131,7 +131,7 @@ class CorrectionTools(Preprocessor):
         year_value = self.datadict[self.datastations[0]][self.date_column_name][0]
 
         start_date = datetime(year_value.year, 1, 1, 0, 0, 0, 0)
-        end_date = datetime(year_value.year + 1, 1, 1, 0, 0, 0, 0)
+        end_date = datetime(year_value.year, 12, 31, 23, 0, 0, 0)
 
         total_days = pd.date_range(start_date, end_date, freq="H")
 
@@ -162,10 +162,10 @@ class CorrectionTools(Preprocessor):
 
         joined_dfs = fulldates_df.join(df, how="inner", rsuffix='', lsuffix='_other')
 
-        #Temporary fix to avoid duplicates, drop_duplicates method not working
+        # Temporary fix to avoid duplicates, drop_duplicates method not working
         joined_dfs = joined_dfs.drop(joined_dfs.loc[joined_dfs.index.duplicated()].index)
 
-        #outer join to obtain the dates for the whole year
+        # outer join to obtain the dates for the whole year
         joined_dfs = fulldates_df.join(joined_dfs, how="outer", rsuffix='', lsuffix='_other1')
 
         # we just select the parameters we want to keep from the joined_dfs
@@ -212,44 +212,78 @@ class CorrectionTools(Preprocessor):
         pass
 
 
-class GroupByParameters(CorrectionTools):
+class GroupByYears:
+    """
+    This class will concat various years of data into a single df which then can be classified into parameters.
+    filepath input will be a list containing the path of the xlsx file.
+    """
+
+    def __init__(self):
+        self.concat_datadict = dict()
+        self.files_path = list()
+        self.datastations = list()
+        self.parameters = list()
+
+    def files_concat(self, xlsx_files_path):
+        self.files_path = xlsx_files_path
+        counter = 0
+        if len(self.files_path) > 1:
+            for year_filepath in self.files_path:
+                CT_obj = CorrectionTools(year_filepath)
+                CT_obj.adjust_data()
+                if counter == 0:
+                    self.concat_datadict = CT_obj.datadict
+                    self.datastations = CT_obj.datastations
+                    self.parameters = CT_obj.parameters
+                    counter += 1
+                    continue
+                else:
+                    for station in CT_obj.datastations:
+                        self.concat_datadict[station] = self.concat_datadict[station].append(CT_obj.datadict[station])
+                        # print(self.concat_datadict[station].append(CT_obj.datadict[station]))
+        else:
+            CT_obj = CorrectionTools(self.files_path[0])
+            CT_obj.adjust_data()
+            self.concat_datadict = CT_obj.datadict
+            self.datastations = CT_obj.datastations
+            self.parameters = CT_obj.parameters
+
+    def export_to_csv(self):
+        pass
+
+
+class GroupByParameters(GroupByYears):
     """
     Group data by parameters such as CO, NO2, etc.
 
     """
 
-    def __init__(self, filepath):
-        super().__init__(filepath)
+    def __init__(self):
+        super().__init__()
         self.all_parameters_df = dict()
 
     def arrange_parameters(self, parameter):
         parameter_df = pd.DataFrame()
         for station in self.datastations:
-            parameter_df[station] = self.datadict[station][parameter]
+            parameter_df[station] = self.concat_datadict[station][parameter]
         return parameter_df
 
     def get_all_parameters_df(self):
         for parameter in self.parameters:
             self.all_parameters_df[parameter] = GroupByParameters.arrange_parameters(self, parameter)
 
-
-class GroupByYears(CorrectionTools):
-    """
-    This class will concat various years of data into a single df which then can be classified into parameters.
-    filepath input will be a list containing the path of the xlsx file.
-    """
-    def __init__(self, filepath):
-        super().__init__(filepath)
+    def export_to_csv(self):
+        pass
 
 
-#TODO: add comments on the GroupByParameters class and methods
-#TODO: Finish the GroupByYears class
-#TODO: Remove all values whose difference with the previous data is higher than 3stdev
-#TODO: Create folder with all the values obtained so far without dropping rows with missing values
-#TODO: Create folder with all the values obtained when dropping rows with missing values
-#TODO: Perform EDA on the treated data
+class OutliersRemovalTools:
+    pass
 
-
+# TODO: add comments on the GroupByParameters and GroupByYears class and methods
+# TODO: Remove all values whose difference with the previous data is higher than 3stdev
+# TODO: Create folder with all the values obtained so far without dropping rows with missing values
+# TODO: Create folder with all the values obtained when dropping rows with missing values
+# TODO: Perform EDA on the treated data
 
 
 if __name__ == '__main__':
@@ -260,12 +294,29 @@ if __name__ == '__main__':
     import os
 
     # get path to file
-    folder_path = r'C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling'
-    data_path = r'\data\datos_2016.xlsx'
-    process_file = folder_path + data_path
+    folder_path = r"C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling\data"
+    os.chdir(folder_path)
+    files_path = os.listdir()
 
-    # d_2016 = Preprocessor(process_file)
-    # d_2016.activate()
-    prueba = GroupByParameters(process_file)
-    prueba.adjust_data()
-    prueba.get_all_parameters_df()
+    #To just read the xslx file with pandas
+    y2017 = Preprocessor(files_path[1])
+    y2017.activate()
+
+    #To get only one xslx file with all missing datetime values
+    y2017_corr = CorrectionTools(files_path[1])
+    y2017_corr.adjust_data()
+
+
+    #To concatenate all the xslx docs in one single table
+
+    all_years = GroupByYears()
+    all_years.files_concat(files_path[:2])
+    all_years.concat_datadict #here's where all of the data is stored
+
+    #To convert from station to parameters
+
+    all_years_parameters = GroupByParameters()
+    all_years_parameters.files_concat(files_path)
+    all_years_parameters.get_all_parameters_df()
+    all_years_parameters.all_parameters_df #here's where all of the converted data is stored
+
