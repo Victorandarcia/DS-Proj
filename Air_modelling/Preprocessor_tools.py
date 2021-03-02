@@ -38,7 +38,7 @@ class CorrectionTools(Preprocessor):
     variances on its date and time format. It also checks for missing datetime values along the
     samples and add it if needed.
 
-    The method that runs all of the other is called ajust_data(), nonetheless, you could run each method
+    The method that runs all of the other is called adjust_data(), nonetheless, you could run each method
     individually with the exception that you must introduce the station argument.
     """
 
@@ -206,6 +206,7 @@ class CorrectionTools(Preprocessor):
         #TODO find a way to make this method valid for only a specific station
 
         The resulting DF can be accessed by calling the '.datadict' attribute on the object.
+        :param modify_df:
         :param station:
         :return:
         """
@@ -223,6 +224,17 @@ class GroupByYears:
         self.files_path = list()
         self.datastations = list()
         self.parameters = list()
+        self.years_begin = None
+        self.years_end = None
+        self.date_column_name = 'FECHA'
+        self.time_column_name = 'HORA'
+
+    def add_date_and_time_cols(self):
+        for station in self.datastations:
+            self.concat_datadict[station][self.date_column_name] = [i.date() for i in
+                                                                    self.concat_datadict[station].index]
+            self.concat_datadict[station][self.time_column_name] = [i.time() for i in
+                                                                    self.concat_datadict[station].index]
 
     def files_concat(self, xlsx_files_path):
         self.files_path = xlsx_files_path
@@ -235,11 +247,13 @@ class GroupByYears:
                     self.concat_datadict = CT_obj.datadict
                     self.datastations = CT_obj.datastations
                     self.parameters = CT_obj.parameters
+                    self.years_begin = self.concat_datadict[self.datastations[0]].index[0].year
                     counter += 1
                     continue
                 else:
                     for station in CT_obj.datastations:
                         self.concat_datadict[station] = self.concat_datadict[station].append(CT_obj.datadict[station])
+                        self.years_end = self.concat_datadict[self.datastations[0]].index[-1].year
                         # print(self.concat_datadict[station].append(CT_obj.datadict[station]))
         else:
             CT_obj = CorrectionTools(self.files_path[0])
@@ -247,9 +261,20 @@ class GroupByYears:
             self.concat_datadict = CT_obj.datadict
             self.datastations = CT_obj.datastations
             self.parameters = CT_obj.parameters
+            self.years_begin = self.concat_datadict[self.datastations[0]].index[0].year
+            self.years_end = self.concat_datadict[self.datastations[0]].index[-1].year
 
-    def export_to_csv(self):
-        pass
+        GroupByYears.add_date_and_time_cols(self)
+
+    def export_to_csv(self, path):
+        os.chdir(path)
+        if not os.path.exists(r'Stations'):
+            os.makedirs(r'Stations')
+        dump_filepath = path + r'\Stations'
+        os.chdir(dump_filepath)
+
+        for station in self.concat_datadict:
+            self.concat_datadict[station].to_csv(f'{self.years_begin}-{self.years_end}_{station}.csv')
 
 
 class GroupByParameters(GroupByYears):
@@ -262,6 +287,14 @@ class GroupByParameters(GroupByYears):
         super().__init__()
         self.all_parameters_df = dict()
 
+    def add_date_and_time_cols(self):
+        for parameter in self.parameters:
+            self.all_parameters_df[parameter][self.date_column_name] = [i.date() for i in
+                                                                        self.all_parameters_df[parameter].index]
+            self.all_parameters_df[parameter][self.time_column_name] = [i.time() for i in
+                                                                        self.all_parameters_df[parameter].index]
+
+
     def arrange_parameters(self, parameter):
         parameter_df = pd.DataFrame()
         for station in self.datastations:
@@ -271,13 +304,26 @@ class GroupByParameters(GroupByYears):
     def get_all_parameters_df(self):
         for parameter in self.parameters:
             self.all_parameters_df[parameter] = GroupByParameters.arrange_parameters(self, parameter)
+        GroupByParameters.add_date_and_time_cols(self)
 
-    def export_to_csv(self):
-        pass
+    def export_to_csv(self, path):
+        os.chdir(path)
+        if not os.path.exists(r'Parameters'):
+            os.makedirs(r'Parameters')
+        dump_filepath = path + r'\Parameters'
+        os.chdir(dump_filepath)
+
+        for parameter in self.all_parameters_df:
+            self.all_parameters_df[parameter].to_csv(f'{self.years_begin}-{self.years_end}_{parameter}.csv')
 
 
 class OutliersRemovalTools:
+    # Contar los datos anteriores y previos
+    # drop to another df
+    # count nules
+
     pass
+
 
 # TODO: add comments on the GroupByParameters and GroupByYears class and methods
 # TODO: Remove all values whose difference with the previous data is higher than 3stdev
@@ -294,29 +340,32 @@ if __name__ == '__main__':
     import os
 
     # get path to file
-    folder_path = r"C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling\data"
-    os.chdir(folder_path)
+    folder_path_to_raw_data = r"C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling\data\raw_data"
+    folder_path_to_preprocessed_data = r"C:\Users\victo\PycharmProjects\DataScienceProj\DS-Proj\Air_modelling\data" \
+                                       r"\preprocessed_data"
+    os.chdir(folder_path_to_raw_data)
     files_path = os.listdir()
 
-    #To just read the xslx file with pandas
-    y2017 = Preprocessor(files_path[1])
-    y2017.activate()
+    # To just read the xslx file with pandas
+    # y2017 = Preprocessor(files_path[1])
+    # y2017.activate()
 
-    #To get only one xslx file with all missing datetime values
-    y2017_corr = CorrectionTools(files_path[1])
-    y2017_corr.adjust_data()
+    # #To get only one xslx file with all missing datetime values
+    # y2017_corr = CorrectionTools(files_path[1])
+    # y2017_corr.adjust_data()
 
+    # To concatenate all the xslx docs in one single table
 
-    #To concatenate all the xslx docs in one single table
+    # all_years = GroupByYears()
+    # all_years.files_concat(files_path)
+    # all_years.export_to_csv(folder_path_to_preprocessed_data)
+    # # all_years.concat_datadict #here's where all of the data is stored
 
-    all_years = GroupByYears()
-    all_years.files_concat(files_path[:2])
-    all_years.concat_datadict #here's where all of the data is stored
-
-    #To convert from station to parameters
+    # To convert from station to parameters
 
     all_years_parameters = GroupByParameters()
     all_years_parameters.files_concat(files_path)
     all_years_parameters.get_all_parameters_df()
-    all_years_parameters.all_parameters_df #here's where all of the converted data is stored
-
+    all_years_parameters.export_to_csv(folder_path_to_preprocessed_data)
+    # #all_years_parameters.all_parameters_df #here's where all of the converted data is stored
+    #
